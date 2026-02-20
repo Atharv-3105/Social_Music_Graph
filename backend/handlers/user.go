@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/atharv-3105/Social_Music_Graph/db"
 	"github.com/atharv-3105/Social_Music_Graph/logger"
@@ -37,6 +38,15 @@ func CreateUer(c *gin.Context){
 
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "internal server error",
+		})
+		return 
+	}
+	req.UserID = strings.TrimSpace(req.UserID)
+	req.Name = strings.TrimSpace(req.Name)
+
+	if req.UserID == "" || req.Name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error" : "user_id or name cannot be empty",
 		})
 		return 
 	}
@@ -197,5 +207,54 @@ func SuggestUsers(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"user_id" : userID, 
 		"suggestions" : suggestions,
+	})
+}
+
+
+func GetMutualFollowers(c *gin.Context) {
+	user1 := c.Param("user_id")
+	user2 := c.Param("other_id")
+
+	mutuals, err := db.GetMututalFollowers(user1, user2)
+	if err != nil {
+		logger.Log.WithError(err).Error("failed to fetch mutual followers")
+		c.JSON(http.StatusInternalServerError, gin.H {
+			"error": "internal server error",
+		})
+		return 
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"user1": user1,
+		"user2": user2,
+		"mutual": mutuals,
+	})
+}
+
+
+func GetUserMetrics(c *gin.Context) {
+	userID := c.Param("user_id")
+
+	metrics, err := db.GetUserMetrics(userID)
+	if err != nil{
+		
+
+		if err == db.ErrUserNotFound {
+			c.JSON(http.StatusNotFound, gin.H {
+				"error": "user not found",
+			})
+			return 
+		}
+
+		logger.Log.WithError(err).Error("failed to fetch metrics")
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "internal server error",
+		})
+		return 
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"user_id" : userID, 
+		"metrics" : metrics,
 	})
 }

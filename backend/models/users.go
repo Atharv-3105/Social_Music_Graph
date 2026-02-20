@@ -1,8 +1,8 @@
 package models 
 
 type CreateUserRequest struct {
-	UserID    string  `json:"user_id" binding: "required"`
-	Name	  string  `json: "name"   binding: "required"`
+	UserID    string  `json:"user_id" binding: "required, min=3,max=50"`
+	Name	  string  `json: "name"   binding: "required, min=2,max=100"`
 }
 
 type UserResponse struct {

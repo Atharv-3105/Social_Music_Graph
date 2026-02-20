@@ -43,6 +43,14 @@ func main(){
 	router.GET("/users/:user_id/following", handlers.GetFollowing)
 
 	router.GET("/users/:user_id/suggestions", handlers.SuggestUsers)
+
+	router.GET("/users/:user_id/mutual/:other_id", handlers.GetMutualFollowers)
+
+	router.GET("/users/:user_id/metrics", handlers.GetUserMetrics)
+
+	router.GET("/users/:user_id/music-similarity", handlers.GetMusicSimilarity)
+
+	router.POST("/listen", handlers.AddListen)
 	logger.Log.Info("Server running on PORT:8080")
 	router.Run(":8080")
 	
