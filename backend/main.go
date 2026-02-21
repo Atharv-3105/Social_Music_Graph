@@ -49,7 +49,7 @@ func main(){
 
 	router.GET("/users/:user_id/metrics", handlers.GetUserMetrics)
 
-	router.GET("/users/:user_id/music-similarity", handlers.GetMusicSimilarity)
+	router.GET("/users/:user_id/music-similarity", handlers.GetJaccardSimilarity)
 
 	router.GET("/users/:user_id/music-cosine", handlers.GetCosineSimilarity)
 

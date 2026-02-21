@@ -34,13 +34,32 @@ func AddListen(c *gin.Context) {
 	})
 }
 
-func GetMusicSimilarity(c *gin.Context) {
+// func GetMusicSimilarity(c *gin.Context) {
+// 	userID := c.Param("user_id")
+
+// 	results, err := db.GetMusicSimilarity(userID)
+
+// 	if err != nil {
+// 		logger.Log.WithError(err).Error("failed to compute music similarity")
+// 		c.JSON(http.StatusInternalServerError, gin.H{
+// 			"error" : "internal server error",
+// 		})
+// 		return 
+// 	}
+
+// 	c.JSON(http.StatusOK, gin.H{
+// 		"user_id" : userID,
+// 		"similarity" : results,
+// 	})
+// }
+
+
+func GetJaccardSimilarity(c *gin.Context) {
 	userID := c.Param("user_id")
 
-	results, err := db.GetMusicSimilarity(userID)
-
+	results, err := db.GetJaccardSimilarity(userID)
 	if err != nil {
-		logger.Log.WithError(err).Error("failed to compute music similarity")
+		logger.Log.WithError(err).Error("failed to compute Jaccard Similarity")
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error" : "internal server error",
 		})

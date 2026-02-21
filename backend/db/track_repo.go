@@ -61,7 +61,58 @@ func AddListen(userID, trackID, title string) error {
 	return err
 }
 
-func GetMusicSimilarity(userID string) ([]map[string]any, error) {
+// func GetMusicSimilarity(userID string) ([]map[string]any, error) {
+// 	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+// 	defer cancel()
+
+// 	session := Driver.NewSession(ctx, neo4j.SessionConfig{
+// 		AccessMode: neo4j.AccessModeRead,
+// 	})
+// 	defer session.Close(ctx)
+
+// 	result, err := session.ExecuteRead(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+
+// 		query := `
+// 				MATCH (u1:User {user_id: $user_id})
+// 				MATCH (u1)-[:LISTENS]->(t:Track)<-[:LISTENS]-(u2:User)
+// 				WHERE u1 <> u2
+				
+// 				RETURN us.user_id AS similar_user,
+// 					   COUNT(t) AS common_tracks
+// 				ORDER BY common_tracks DESC
+// 				LIMIT 10
+// 			`
+		
+// 		res, err := tx.Run(ctx, query, map[string]any{
+// 			"user_id" : userID,
+// 		})
+// 		if err != nil {
+// 			return nil, err
+// 		}
+
+// 		results := []map[string]any{}
+
+// 		for res.Next(ctx) {
+// 			record := res.Record()
+
+
+// 			results  = append(results, map[string]any{
+// 				"user_id" : record.Values[0],
+// 				"common_tracks" : record.Values[1],
+// 			})
+// 		}
+
+// 		return results, nil
+// 	})
+
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	return result.([]map[string]any) , nil
+// }
+
+func GetJaccardSimilarity(userID string) ([]map[string]any, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
 	defer cancel()
 
@@ -70,43 +121,64 @@ func GetMusicSimilarity(userID string) ([]map[string]any, error) {
 	})
 	defer session.Close(ctx)
 
+	//We need to perform UNION,INTERNSECTION inorder to Compute Jaccard Similarity
 	result, err := session.ExecuteRead(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
 
 		query := `
-				MATCH (u1:User {user_id: $user_id})
+				MATCH (u1: User {user_id : $user_id})
 				MATCH (u1)-[:LISTENS]->(t:Track)<-[:LISTENS]-(u2:User)
 				WHERE u1 <> u2
 				
-				RETURN us.user_id AS similar_user,
-					   COUNT(t) AS common_tracks
-				ORDER BY common_tracks DESC
+				
+				WITH u1, u2, count(DISTINCT t) AS intersection
+				
+				MATCH (u1)-[:LISTENS]->(t1:Track)
+				WITH u1, u2, intersection, count(DISTINCT t1) AS total1
+				
+				MATCH (u2)-[:LISTENS]->(t2: Track)
+				WITH u2.user_id AS similar_user,
+							intersection,
+							total1,
+							count(DISTINCT t2) AS total2
+				
+				WITH similar_user,intersection,(total1 + total2 - intersection) AS union_count
+				
+				WHERE union_count > 0
+				
+				RETURN similar_user,
+					   intersection,
+					   union_count,
+					   toFloat(intersection) / union_count AS jaccard
+				
+				ORDER BY jaccard DESC
 				LIMIT 10
-			`
-		
-		res, err := tx.Run(ctx, query, map[string]any{
-			"user_id" : userID,
-		})
-		if err != nil {
-			return nil, err
-		}
+				`
 
-		results := []map[string]any{}
+				res, err := tx.Run(ctx, query, map[string]any{
+					"user_id" : userID,
+				})
+				if err != nil {
+					return nil, err
+				}
 
-		for res.Next(ctx) {
-			record := res.Record()
+				results := []map[string]any{}
 
+				for res.Next(ctx) {
+					record := res.Record()
 
-			results  = append(results, map[string]any{
-				"user_id" : record.Values[0],
-				"common_tracks" : record.Values[1],
-			})
-		}
+					results = append(results, map[string]any{
+						"user_id" : record.Values[0],
+						"intersection" : record.Values[1],
+						"union" : record.Values[2],
+						"jaccard" : record.Values[3],
+					})
+				}
 
-		return results, nil
+				return results, nil
 	})
 
 	if err != nil {
-		return nil, err
+		return nil, err 
 	}
 
 	return result.([]map[string]any) , nil
