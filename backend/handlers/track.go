@@ -52,3 +52,21 @@ func GetMusicSimilarity(c *gin.Context) {
 		"similarity" : results,
 	})
 }
+
+func GetCosineSimilarity(c *gin.Context) {
+	userID := c.Param("user_id")
+
+	results, err := db.GetCosineSimilarity(userID)
+	if err != nil {
+		logger.Log.WithError(err).Error("failed to compute cosine similarity")
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error" : "internal server error",
+		})
+		return 
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"user_id" : userID,
+		"similarity" : results, 
+	})
+}

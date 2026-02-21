@@ -111,3 +111,77 @@ func GetMusicSimilarity(userID string) ([]map[string]any, error) {
 
 	return result.([]map[string]any) , nil
 }
+
+
+func GetCosineSimilarity(userID string) ([]map[string]any, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+	defer cancel()
+
+	session := Driver.NewSession(ctx, neo4j.SessionConfig{
+		AccessMode: neo4j.AccessModeRead,
+	})
+	defer session.Close(ctx)
+
+	result, err := session.ExecuteRead(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+
+		query := `
+				MATCH (u1 : User {user_id : $user_id})-[r1:LISTENS]->(t:Track)
+				MATCH (u2 : User)-[r2:LISTENS]->(t)
+				WHERE u1 <> u2
+				
+				WITH u1, u2, 
+					  SUM(r1.count * r2.count) AS dot_product
+					  
+				MATCH (u1)-[r:LISTENS]->(:Track)
+				WITH u2, dot_product,
+				 	 sqrt(SUM(r.count * r.count)) AS norm1
+				
+				MATCH (u2)-[r:LISTENS]->(:Track)
+				WITH u2, dot_product,
+					  norm1,sqrt(SUM(r.count * r.count)) AS norm2
+				
+				WITH similar_user,
+					 dot_product,
+					 norm1,norm2,
+					 CASE 
+					 	WHEN norm1 = 0 OR norm2 = 0
+						THEN 0
+						ELSE dot_product / (norm1 * norm2)
+					 END AS cosine
+					 
+				RETURN similar_user,
+					   dot_product,
+					   cosine
+				ORDER BY cosine DESC
+				LIMIT 10
+			`
+		
+		res, err := tx.Run(ctx, query, map[string]any{
+			"user_id" : userID,
+		})
+
+		if err != nil {
+			return nil, err
+		}
+
+		results := []map[string]any{}
+
+		for res.Next(ctx) {
+			record := res.Record()
+
+			results = append(results, map[string]any{
+				"user_id" : record.Values[0],
+				"dot_product" : record.Values[1],
+				"cosine" : record.Values[2],
+			})
+		}
+
+		return results, nil
+	})	
+
+	if err != nil {
+		return nil, err
+	}
+
+	return result.([]map[string]any), nil
+}
